@@ -190,7 +190,7 @@
  * 
  * Sending a mail with an attachment ("mixed content"):
  * 
- *     $base64_file_data = base64_encode(file_get_contents("file.xyz"));
+ *     $base64_file_data = chunk_split(base64_encode(file_get_contents("file.xyz")));
  *     $message = <<<EOD
  *     From: "Mr. Sender" <sender@example.com>
  *     To: "Mr. Receiver" <receiver@example.com>
@@ -289,7 +289,7 @@
  * message with an attachment where the text part is provided as plain text and
  * HTML.
  * 
- *     $base64_file_data = base64_encode(file_get_contents("file.xyz"));
+ *     $base64_file_data = chunk_split(base64_encode(file_get_contents("file.xyz")));
  *     $message = <<<EOD
  *     From: "Mr. Sender" <sender@example.com>
  *     To: "Mr. Receiver" <receiver@example.com>
