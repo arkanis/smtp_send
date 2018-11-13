@@ -135,7 +135,7 @@ be unencrypted.
 * * *
 
 Use the `ssl` option to disable SSL peer verification (`verify_peer` SSL context
-option). The `ssl` option can contain any [ssl context option][http://php.net/context.ssl]
+option). The `ssl` option can contain any [ssl context option](http://php.net/context.ssl)
 (e.g. to specify a CA to verify against). The options are only used when STARTTLS
 is used.
 
