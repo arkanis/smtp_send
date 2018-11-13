@@ -80,7 +80,7 @@
  *   
  *   - `user` and `pass` keys: SMTP user name and password. Both have to be set
  *     to enable authentication. Right now only PLAIN and LOGIN authentication is
- *     supported.
+ *     supported.  
  *     Default when not specified: Don't do SMTP authentication.
  *   - `timeout`: The timeout in seconds used by `fsockopen()`. If it can't
  *     connect to the SMTP server in that time the function aborts.  
@@ -91,7 +91,7 @@
  *     Default when not specified: Return value of `gethostname()`.
  *   - `ssl`: [SSL context options][ssl] used for STARTTLS. Especially helpful to
  *     disable peer verification (set `verify_peer` option to `false`) or specify
- *     a certificate.
+ *     a certificate.  
  *     Default when not specified: `[]` (no SSL context options).
  * 
  * [ssl]: http://php.net/manual/en/context.ssl.php
@@ -378,19 +378,19 @@
  * Version history
  * ---------------
  * 
- * - 2018-11-13 by Stephan Soller <stephan.soller@helionweb.de>
- *   Implemented the LOGIN authentication method.
+ * - 2018-11-13 by Stephan Soller <stephan.soller@helionweb.de>  
+ *   Implemented the LOGIN authentication method.  
  *   Added `ssl` option to specify SSL context options (e.g. `verify_peer`).
  * 
- * - 2018-04-24 by Stephan Soller <stephan.soller@helionweb.de>
+ * - 2018-04-24 by Stephan Soller <stephan.soller@helionweb.de>  
  *   Added code to reject mail addresses that could potentially inject other
  *   SMTP commands.
  * 
- * - 2018-03-12 by Stephan Soller <stephan.soller@helionweb.de>
+ * - 2018-03-12 by Stephan Soller <stephan.soller@helionweb.de>  
  *   Multiple greeting lines from the server were not correctly consumed. This
  *   prevented mail submission on some SMTP servers.
  * 
- * - 2014-09-14  by Stephan Soller <stephan.soller@helionweb.de>
+ * - 2014-09-14  by Stephan Soller <stephan.soller@helionweb.de>  
  *   Wrote function to be independent of PHPs mail configuration.
  */
 function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = array()) {
