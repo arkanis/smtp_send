@@ -79,8 +79,8 @@
  *   details.
  *   
  *   - `user` and `pass` keys: SMTP user name and password. Both have to be set
- *     to enable authentication. Right now only PLAIN authentication is
- *     supported.  
+ *     to enable authentication. Right now only PLAIN and LOGIN authentication is
+ *     supported.
  *     Default when not specified: Don't do SMTP authentication.
  *   - `timeout`: The timeout in seconds used by `fsockopen()`. If it can't
  *     connect to the SMTP server in that time the function aborts.  
@@ -89,6 +89,13 @@
  *     `EHLO` greeting. Looks like servers ignore it. I don’t know what they
  *     should do with it.  
  *     Default when not specified: Return value of `gethostname()`.
+ *   - `ssl`: [SSL context options][ssl] used for STARTTLS. Especially helpful to
+ *     disable peer verification (set `verify_peer` option to `false`) or specify
+ *     a certificate.
+ *     Default when not specified: `[]` (no SSL context options).
+ * 
+ * [ssl]: http://php.net/manual/en/context.ssl.php
+ * 
  * 
  * Return value
  * ------------
@@ -117,6 +124,29 @@
  *     smtp_send('sender@example.com', 'receiver@example.com', $message, 'mail.example.com', 587, array(
  *         'user' => 'sender',
  *         'pass' => 'secret'
+ *     ));
+ * 
+ * * * *
+ * 
+ * Use the `ssl` option to disable SSL peer verification (`verify_peer` SSL context
+ * option). The `ssl` option can contain any [ssl context option][http://php.net/context.ssl]
+ * (e.g. to specify a CA to verify against). The options are only used when STARTTLS
+ * is used.
+ * 
+ *     $message = <<<EOD
+ *     From: "Mr. Sender" <sender@example.com>
+ *     To: "Mr. Receiver" <receiver@example.com>
+ *     Subject: SMTP Test
+ *     Date: Thu, 21 Dec 2017 16:01:07 +0200
+ *     Content-Type: text/plain; charset=utf-8
+ *     
+ *     Hello there. Just a small test. 😊
+ *     End of message.
+ *     EOD;
+ *     smtp_send('sender@example.com', 'receiver@example.com', $message, 'tls://mail.example.com', 465, array(
+ *         'user' => 'sender',
+ *         'pass' => 'secret',
+ *         'ssl' => [ 'verify_peer' => false ]
  *     ));
  * 
  * * * *
@@ -348,15 +378,19 @@
  * Version history
  * ---------------
  * 
- * - 2018-04-24 by Stephan Soller <stephan.soller@helionweb.de>  
+ * - 2018-11-13 by Stephan Soller <stephan.soller@helionweb.de>
+ *   Implemented the LOGIN authentication method.
+ *   Added `ssl` option to specify SSL context options (e.g. `verify_peer`).
+ * 
+ * - 2018-04-24 by Stephan Soller <stephan.soller@helionweb.de>
  *   Added code to reject mail addresses that could potentially inject other
  *   SMTP commands.
  * 
- * - 2018-03-12 by Stephan Soller <stephan.soller@helionweb.de>  
+ * - 2018-03-12 by Stephan Soller <stephan.soller@helionweb.de>
  *   Multiple greeting lines from the server were not correctly consumed. This
  *   prevented mail submission on some SMTP servers.
  * 
- * - 2014-09-14  by Stephan Soller <stephan.soller@helionweb.de>  
+ * - 2014-09-14  by Stephan Soller <stephan.soller@helionweb.de>
  *   Wrote function to be independent of PHPs mail configuration.
  */
 function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = array()) {
@@ -365,6 +399,8 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		$options['timeout'] = ini_get("default_socket_timeout");
 	if ( ! isset($options['client_domain']) )
 		$options['client_domain'] = gethostname();
+	if ( ! isset($options['ssl']) )
+		$options['ssl'] = [];
 	
 	// Sanitize parameters
 	if ( ! is_array($to) )
@@ -441,6 +477,7 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 	if (in_array('STARTTLS', $capabilities)) {
 		list($status, ) = $command('STARTTLS');
 		if ($status == 220) {
+			stream_context_set_option($con, [ 'ssl' => $options['ssl'] ]);
 			if ( ! stream_socket_enable_crypto($con, true, STREAM_CRYPTO_METHOD_TLS_CLIENT) ) {
 				$command('QUIT');
 				fclose($con);
@@ -456,11 +493,43 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		}
 	}
 	
-	// Authenticate using PLAIN method if we have credentials
-	// See http://tools.ietf.org/html/rfc4954#section-4
+	// Authenticate using PLAIN or LOGIN method if we have credentials
+	// See http://tools.ietf.org/html/rfc4954#section-4 and
+	// https://www.iana.org/assignments/sasl-mechanisms/sasl-mechanisms.xhtml
 	if ( isset($options['user']) and isset($options['user']) ) {
-		list($status, ) = $command('AUTH PLAIN ' . base64_encode("\0" . $options['user'] . "\0" . $options['pass']));
-		if ($status != 235) {
+		$auth_capability = current(preg_grep('/^auth /i', $capabilities)) ?: "";
+		$supported_auth_methods = array_slice(preg_split('/\s+/', strtolower($auth_capability)), 1);
+		
+		if ( in_array('plain', $supported_auth_methods) ) {
+			// See https://tools.ietf.org/html/rfc4616
+			list($status, ) = $command('AUTH PLAIN ' . base64_encode("\0" . $options['user'] . "\0" . $options['pass']));
+			if ($status != 235) {
+				$command('QUIT');
+				fclose($con);
+				return false;
+			}
+		} elseif ( in_array('login', $supported_auth_methods) ) {
+			// See https://tools.ietf.org/html/draft-murchison-sasl-login-00
+			list($status, ) = $command('AUTH LOGIN');
+			if ($status != 334) {
+				$command('QUIT');
+				fclose($con);
+				return false;
+			}
+			list($status, ) = $command(base64_encode($options['user']));
+			if ($status != 334) {
+				$command('QUIT');
+				fclose($con);
+				return false;
+			}
+			list($status, ) = $command(base64_encode($options['pass']));
+			if ($status != 235) {
+				$command('QUIT');
+				fclose($con);
+				return false;
+			}
+		} else {
+			// No supported authentication method, abort
 			$command('QUIT');
 			fclose($con);
 			return false;

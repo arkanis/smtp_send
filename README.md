@@ -85,8 +85,8 @@ __$options__: An array with further arguments that are only needed for
   details.
   
   - `user` and `pass` keys: SMTP user name and password. Both have to be set
-    to enable authentication. Right now only PLAIN authentication is
-    supported.  
+    to enable authentication. Right now only PLAIN and LOGIN authentication is
+    supported.
     Default when not specified: Don't do SMTP authentication.
   - `timeout`: The timeout in seconds used by `fsockopen()`. If it can't
     connect to the SMTP server in that time the function aborts.  
@@ -95,6 +95,13 @@ __$options__: An array with further arguments that are only needed for
     `EHLO` greeting. Looks like servers ignore it. I don’t know what they
     should do with it.  
     Default when not specified: Return value of `gethostname()`.
+  - `ssl`: [SSL context options][ssl] used for STARTTLS. Especially helpful to
+    disable peer verification (set `verify_peer` option to `false`) or specify
+    a certificate.
+    Default when not specified: `[]` (no SSL context options).
+
+[ssl]: http://php.net/manual/en/context.ssl.php
+
 
 Return value
 ------------
@@ -123,6 +130,29 @@ be unencrypted.
     smtp_send('sender@example.com', 'receiver@example.com', $message, 'mail.example.com', 587, array(
         'user' => 'sender',
         'pass' => 'secret'
+    ));
+
+* * *
+
+Use the `ssl` option to disable SSL peer verification (`verify_peer` SSL context
+option). The `ssl` option can contain any [ssl context option][http://php.net/context.ssl]
+(e.g. to specify a CA to verify against). The options are only used when STARTTLS
+is used.
+
+    $message = <<<EOD
+    From: "Mr. Sender" <sender@example.com>
+    To: "Mr. Receiver" <receiver@example.com>
+    Subject: SMTP Test
+    Date: Thu, 21 Dec 2017 16:01:07 +0200
+    Content-Type: text/plain; charset=utf-8
+    
+    Hello there. Just a small test. 😊
+    End of message.
+    EOD;
+    smtp_send('sender@example.com', 'receiver@example.com', $message, 'tls://mail.example.com', 465, array(
+        'user' => 'sender',
+        'pass' => 'secret',
+        'ssl' => [ 'verify_peer' => false ]
     ));
 
 * * *
@@ -354,13 +384,17 @@ Distributed under the MIT License
 Version history
 ---------------
 
-- 2018-04-24 by Stephan Soller <stephan.soller@helionweb.de>  
+- 2018-11-13 by Stephan Soller <stephan.soller@helionweb.de>
+  Implemented the LOGIN authentication method.
+  Added `ssl` option to specify SSL context options (e.g. `verify_peer`).
+
+- 2018-04-24 by Stephan Soller <stephan.soller@helionweb.de>
   Added code to reject mail addresses that could potentially inject other
   SMTP commands.
 
-- 2018-03-12 by Stephan Soller <stephan.soller@helionweb.de>  
+- 2018-03-12 by Stephan Soller <stephan.soller@helionweb.de>
   Multiple greeting lines from the server were not correctly consumed. This
   prevented mail submission on some SMTP servers.
 
-- 2014-09-14  by Stephan Soller <stephan.soller@helionweb.de>  
+- 2014-09-14  by Stephan Soller <stephan.soller@helionweb.de>
   Wrote function to be independent of PHPs mail configuration.
