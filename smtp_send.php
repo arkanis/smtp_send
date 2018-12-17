@@ -93,6 +93,10 @@
  *     disable peer verification (set `verify_peer` option to `false`) or specify
  *     a certificate.  
  *     Default when not specified: `[]` (no SSL context options).
+ *   - `debug`: When set to `true` the functions echo()s all SMTP commands that are
+ *     sent and all lines it received. Meant to debug unwilling SMTP servers.
+ *     BE AWARE: This might dump sensitive information like passwords to the output.
+ *     Default when not specified: `false` (no debug output).
  * 
  * [ssl]: http://php.net/manual/en/context.ssl.php
  * 
@@ -378,6 +382,9 @@
  * Version history
  * ---------------
  * 
+ * - 2018-12-14 by Stephan Soller <stephan.soller@helionweb.de>  
+ *   Added `debug` option to echo() the sent and received protocol messages.
+ * 
  * - 2018-11-13 by Stephan Soller <stephan.soller@helionweb.de>  
  *   Implemented the LOGIN authentication method.  
  *   Added `ssl` option to specify SSL context options (e.g. `verify_peer`).
@@ -401,6 +408,8 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		$options['client_domain'] = gethostname();
 	if ( ! isset($options['ssl']) )
 		$options['ssl'] = [];
+	if ( ! isset($options['debug']) )
+		$options['debug'] = false;
 	
 	// Sanitize parameters
 	if ( ! is_array($to) )
@@ -436,13 +445,19 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 	// If `$command_line` is `null? nothing is send and any pending responses
 	// are collected (useful to consume the greeting lines).
 	// See http://tools.ietf.org/html/rfc5321#section-4.1.1
-	$command = function($command_line) use(&$con) {
+	$command = function($command_line) use(&$con, $options) {
+		if ($options["debug"] and $command_line !== null)
+			echo("> $command_line\n");
+		
 		if ($command_line !== null)
 			fwrite($con, "$command_line\r\n");
 		
 		$status = null;
 		$text = array();
 		while( $line = fgets($con) ) {
+			if ($options["debug"])
+				echo("< $line");
+			
 			$status = substr($line, 0, 3);
 			$text[] = trim(substr($line, 4));
 			if (substr($line, 3, 1) === ' ')
@@ -552,6 +567,8 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 	if (substr($message, -2) !== "\r\n")
 		$message .= "\r\n";
 	
+	if ($options["debug"])
+		echo("> $message");
 	fwrite($con, $message);
 	list($status, ) = $command(".");
 	$submission_successful = ($status == 250);
