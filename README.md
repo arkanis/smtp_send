@@ -99,6 +99,10 @@ __$options__: An array with further arguments that are only needed for
     disable peer verification (set `verify_peer` option to `false`) or specify
     a certificate.  
     Default when not specified: `[]` (no SSL context options).
+  - `debug`: When set to `true` the functions echo()s all SMTP commands that are
+    sent and all lines it received. Meant to debug unwilling SMTP servers.  
+    BE AWARE: This might dump sensitive information like passwords to the output.  
+    Default when not specified: `false` (no debug output).
 
 [ssl]: http://php.net/manual/en/context.ssl.php
 
@@ -383,6 +387,9 @@ Distributed under the MIT License
 
 Version history
 ---------------
+
+- 2018-12-14 by Stephan Soller <stephan.soller@helionweb.de>  
+  Added `debug` option to echo() the sent and received protocol messages.
 
 - 2018-11-13 by Stephan Soller <stephan.soller@helionweb.de>  
   Implemented the LOGIN authentication method.  

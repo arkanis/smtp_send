@@ -94,8 +94,8 @@
  *     a certificate.  
  *     Default when not specified: `[]` (no SSL context options).
  *   - `debug`: When set to `true` the functions echo()s all SMTP commands that are
- *     sent and all lines it received. Meant to debug unwilling SMTP servers.
- *     BE AWARE: This might dump sensitive information like passwords to the output.
+ *     sent and all lines it received. Meant to debug unwilling SMTP servers.  
+ *     BE AWARE: This might dump sensitive information like passwords to the output.  
  *     Default when not specified: `false` (no debug output).
  * 
  * [ssl]: http://php.net/manual/en/context.ssl.php
