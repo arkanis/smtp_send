@@ -388,6 +388,11 @@ Distributed under the MIT License
 Version history
 ---------------
 
+- 2019-11-21 by Stephan Soller <stephan.soller@helionweb.de>  
+  Fixed wrong backslash escaping in the regex that checks addresses with ">"
+  characters for proper escaping (e.g. '"a\>b\"c"@example.com').
+  Minor code cleanup.
+
 - 2018-12-14 by Stephan Soller <stephan.soller@helionweb.de>  
   Added `debug` option to echo() the sent and received protocol messages.
 
