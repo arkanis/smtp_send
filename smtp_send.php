@@ -382,6 +382,9 @@
  * Version history
  * ---------------
  * 
+ * - XXXX-XX-XX by Stephan Soller <stephan.soller@helionweb.de>  
+ *   Minor code cleanup.
+ * 
  * - 2018-12-14 by Stephan Soller <stephan.soller@helionweb.de>  
  *   Added `debug` option to echo() the sent and received protocol messages.
  * 
@@ -425,7 +428,7 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		if ( strpos($address, ">") === false )
 			return true;
 		// Address only contains properly quoted ">" characters so it's safe
-		// Example (the quote are part of it): "foo\>bar\"batz"@example.com
+		// Example (the quotes are part of it): "foo\>bar\"batz"@example.com
 		// See https://tools.ietf.org/html/rfc5321#page-42 and
 		// https://stackoverflow.com/a/201378
 		if ( preg_match('/^"(?:\\.|[^\\])*"@[^@>]+$/', $address) )
@@ -442,7 +445,7 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 	}
 	
 	// Small helper function to send SMTP commands and receive their responses.
-	// If `$command_line` is `null? nothing is send and any pending responses
+	// If `$command_line` is `null` nothing is send and any pending responses
 	// are collected (useful to consume the greeting lines).
 	// See http://tools.ietf.org/html/rfc5321#section-4.1.1
 	$command = function($command_line) use(&$con, $options) {
@@ -454,7 +457,7 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		
 		$status = null;
 		$text = array();
-		while( $line = fgets($con) ) {
+		while( ($line = fgets($con)) !== false ) {
 			if ($options["debug"])
 				echo("< $line");
 			
@@ -467,6 +470,15 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		return array($status, $text);
 	};
 	
+	// Another small helper function to properly quit and close the connection
+	// when we got an unexpected reply from the server. Returns `false` so it
+	// can be used like this: `return $quit_connection_and_return_false();`
+	$quit_connection_and_return_false = function() use($con, $command) {
+		$command('QUIT');
+		fclose($con);
+		return false;
+	};
+	
 	// Connect to SMTP server
 	$con = fsockopen($smtp_server, @$smtp_port, $errno, $errstr, $options['timeout']);
 	if ($con === false)
@@ -474,18 +486,14 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 	
 	// Consume the greeting line(s)
 	list($status, $greetings) = $command(null);
-	if ($status != 220) {
-		fclose($con);
-		return false;
-	}
+	if ($status != 220)
+		return $quit_connection_and_return_false();
 	
 	// Say hello to the server
 	// See http://tools.ietf.org/html/rfc5321#section-4.1.1.1
 	list($status, $capabilities) = $command('EHLO ' . $options['client_domain']);
-	if ($status != 250) {
-		fclose($con);
-		return false;
-	}
+	if ($status != 250)
+		return $quit_connection_and_return_false();
 	
 	// Try TLS if available
 	// See http://tools.ietf.org/html/rfc3207
@@ -493,18 +501,12 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		list($status, ) = $command('STARTTLS');
 		if ($status == 220) {
 			stream_context_set_option($con, [ 'ssl' => $options['ssl'] ]);
-			if ( ! stream_socket_enable_crypto($con, true, STREAM_CRYPTO_METHOD_TLS_CLIENT) ) {
-				$command('QUIT');
-				fclose($con);
-				return false;
-			}
+			if ( ! stream_socket_enable_crypto($con, true, STREAM_CRYPTO_METHOD_TLS_CLIENT) )
+				return $quit_connection_and_return_false();
 			
 			list($status, $capabilities) = $command('EHLO ' . $options['client_domain']);
-			if ($status != 250) {
-				$command('QUIT');
-				fclose($con);
-				return false;
-			}
+			if ($status != 250)
+				return $quit_connection_and_return_false();
 		}
 	}
 	
@@ -518,36 +520,24 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		if ( in_array('plain', $supported_auth_methods) ) {
 			// See https://tools.ietf.org/html/rfc4616
 			list($status, ) = $command('AUTH PLAIN ' . base64_encode("\0" . $options['user'] . "\0" . $options['pass']));
-			if ($status != 235) {
-				$command('QUIT');
-				fclose($con);
-				return false;
-			}
+			if ($status != 235)
+				return $quit_connection_and_return_false();
 		} elseif ( in_array('login', $supported_auth_methods) ) {
 			// See https://tools.ietf.org/html/draft-murchison-sasl-login-00
 			list($status, ) = $command('AUTH LOGIN');
-			if ($status != 334) {
-				$command('QUIT');
-				fclose($con);
-				return false;
-			}
+			if ($status != 334)
+				return $quit_connection_and_return_false();
+			
 			list($status, ) = $command(base64_encode($options['user']));
-			if ($status != 334) {
-				$command('QUIT');
-				fclose($con);
-				return false;
-			}
+			if ($status != 334)
+				return $quit_connection_and_return_false();
+			
 			list($status, ) = $command(base64_encode($options['pass']));
-			if ($status != 235) {
-				$command('QUIT');
-				fclose($con);
-				return false;
-			}
+			if ($status != 235)
+				return $quit_connection_and_return_false();
 		} else {
 			// No supported authentication method, abort
-			$command('QUIT');
-			fclose($con);
-			return false;
+			return $quit_connection_and_return_false();
 		}
 	}
 	
