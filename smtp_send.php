@@ -382,7 +382,9 @@
  * Version history
  * ---------------
  * 
- * - XXXX-XX-XX by Stephan Soller <stephan.soller@helionweb.de>  
+ * - 2019-11-21 by Stephan Soller <stephan.soller@helionweb.de>  
+ *   Fixed wrong backslash escaping in the regex that checks addresses with ">"
+ *   characters for proper escaping (e.g. '"a\>b\"c"@example.com').
  *   Minor code cleanup.
  * 
  * - 2018-12-14 by Stephan Soller <stephan.soller@helionweb.de>  
@@ -431,7 +433,7 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 		// Example (the quotes are part of it): "foo\>bar\"batz"@example.com
 		// See https://tools.ietf.org/html/rfc5321#page-42 and
 		// https://stackoverflow.com/a/201378
-		if ( preg_match('/^"(?:\\.|[^\\])*"@[^@>]+$/', $address) )
+		if ( preg_match('/^"(?:\\\\.|[^\\\\])*"@[^@>]+$/', $address) )
 			return true;
 		// Address contains unescaped ">" characters so it'll break commands.
 		return false;
