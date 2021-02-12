@@ -382,9 +382,14 @@
  * Version history
  * ---------------
  * 
+ * - 2021-02-12 by Stephan Soller <stephan.soller@helionweb.de>  
+ *   Only attempt authentication if the `user` and `pass` options are given and
+ *   `user` is non-empty. This allows to disable auth by using an empty user
+ *   name in a config file instead of removing the options.
+ * 
  * - 2019-11-21 by Stephan Soller <stephan.soller@helionweb.de>  
  *   Fixed wrong backslash escaping in the regex that checks addresses with ">"
- *   characters for proper escaping (e.g. '"a\>b\"c"@example.com').
+ *   characters for proper escaping (e.g. '"a\>b\"c"@example.com').  
  *   Minor code cleanup.
  * 
  * - 2018-12-14 by Stephan Soller <stephan.soller@helionweb.de>  
@@ -515,7 +520,7 @@ function smtp_send($from, $to, $message, $smtp_server, $smtp_port, $options = ar
 	// Authenticate using PLAIN or LOGIN method if we have credentials
 	// See http://tools.ietf.org/html/rfc4954#section-4 and
 	// https://www.iana.org/assignments/sasl-mechanisms/sasl-mechanisms.xhtml
-	if ( isset($options['user']) and isset($options['user']) ) {
+	if ( isset($options['user']) and $options['user'] != "" and isset($options['pass']) ) {
 		$auth_capability = current(preg_grep('/^auth /i', $capabilities)) ?: "";
 		$supported_auth_methods = array_slice(preg_split('/\s+/', strtolower($auth_capability)), 1);
 		
